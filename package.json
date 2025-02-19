@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/rpchubs/KiteAI-BOT.git"
+    "url": "https://codeberg.org/Galkurta/KiteAI-BOT.git"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +19,7 @@
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.11.0",
     "groq-sdk": "^0.15.0",
+    "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
     "web3": "^4.16.0"
   }
