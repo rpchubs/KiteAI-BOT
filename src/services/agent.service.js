@@ -2,7 +2,7 @@ import axios from "axios";
 import fs from "fs";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { HttpProxyAgent } from "http-proxy-agent";
-import { rateLimitConfig } from "../../config.js";
+import { rateLimitConfig, proxyConfig  } from "../../config.js";
 import groqService from "./groq.service.js";
 import { sleep } from "../utils/helpers.js";
 import dashboard from "../ui/dashboard.js";
@@ -10,14 +10,20 @@ import dashboard from "../ui/dashboard.js";
 class AgentService {
   constructor() {
     this.lastRequestTime = Date.now();
-    this.timeout = 30000;
+    this.timeout = 60000;
     this.proxyIndex = 0;
-    this.proxies = this.loadProxies();
+    this.proxies = proxyConfig.useProxy ? this.loadProxies() : [];
     this.currentProxy = null;
-    this.axiosInstance = null;
+    this.axiosInstance = proxyConfig.useProxy ? this.createAxiosInstance(this.getNextProxy()) : axios.create({
+      headers: { "Content-Type": "application/json" },
+      timeout: this.timeout,
+    });
+
+    if (!proxyConfig.useProxy) {
+      dashboard.log("🚀 Running without proxy.");
+    }
   }
 
-  // 📌 Load proxy từ file proxies.txt
   loadProxies() {
     try {
       const proxies = fs
@@ -38,12 +44,8 @@ class AgentService {
     }
   }
 
-  // 📌 Lấy proxy tiếp theo
   getNextProxy() {
-    if (!this.proxies || this.proxies.length === 0) {
-      dashboard.log("Proxy list is empty or not loaded.");
-      process.exit(1);
-    }
+    if (!proxyConfig.useProxy || this.proxies.length === 0) return null;
 
     this.currentProxy = this.proxies[this.proxyIndex];
     this.proxyIndex = (this.proxyIndex + 1) % this.proxies.length;
@@ -51,11 +53,12 @@ class AgentService {
     return this.currentProxy;
   }
 
-  // 📌 Tạo axios với proxy (Hỗ trợ cả HTTP & HTTPS)
-  async createAxiosInstance(proxyUrl) {
-    if (!proxyUrl || typeof proxyUrl !== "string") {
-      dashboard.log("Invalid proxy URL:", proxyUrl);
-      return axios.create({ timeout: this.timeout });
+  createAxiosInstance(proxyUrl) {
+    if (!proxyConfig.useProxy || !proxyUrl) {
+      return axios.create({
+        headers: { "Content-Type": "application/json" },
+        timeout: this.timeout,
+      });
     }
 
     const isHttp = proxyUrl.startsWith("http://");
@@ -70,14 +73,15 @@ class AgentService {
     });
   }
 
-  // 📌 Cập nhật proxy mới khi chuyển sang ví khác
   async updateProxy() {
+    if (!proxyConfig.useProxy) return;
     const proxyUrl = this.getNextProxy();
-    this.axiosInstance = await this.createAxiosInstance(proxyUrl);
+    this.axiosInstance = this.createAxiosInstance(proxyUrl);
   }
 
-  // 📌 Kiểm tra IP hiện tại của proxy
   async getCurrentIP() {
+    if (!proxyConfig.useProxy) return "Direct Connection";
+    
     try {
       const response = await this.axiosInstance.get("http://api64.ipify.org?format=json");
       return response.data.ip || "Unknown";
@@ -88,7 +92,10 @@ class AgentService {
   }
 
   calculateDelay(attempt) {
-    return Math.min(rateLimitConfig.maxDelay, rateLimitConfig.baseDelay * Math.pow(2, attempt));
+    return Math.min(
+      rateLimitConfig.maxDelay,
+      rateLimitConfig.baseDelay * Math.pow(2, attempt)
+    );
   }
 
   async checkRateLimit() {
@@ -107,17 +114,25 @@ class AgentService {
   async sendQuestion(agent) {
     try {
       await this.checkRateLimit();
-  
-      // 🔥 Cập nhật proxy trước mỗi request
+
       await this.updateProxy();
       const currentIP = await this.getCurrentIP();
       dashboard.log(`Using Proxy IP: ${currentIP}`);
 
-      const question = await groqService.generateQuestion();
-      const payload = { message: question, stream: false };
+      let question = await groqService.generateQuestion();
+      const axiosInstance = axios.create({
+        headers: { "Content-Type": "application/json" },
+        timeout: this.timeout,
+      });
 
-      const response = await this.axiosInstance.post(
-        `http://${agent.toLowerCase().replace("_", "-")}.stag-vxzy.zettablock.com/main`,
+      question = `Answer the following question very briefly: ${question}`
+
+      const payload = { message: question, stream: false };
+      dashboard.log(`Question generated: ${question}`)
+      const response = await axiosInstance.post(
+        `https://${agent
+          .toLowerCase()
+          .replace("_", "-")}.stag-vxzy.zettablock.com/main`,
         payload
       );
 
@@ -141,9 +156,6 @@ class AgentService {
     try {
       await this.checkRateLimit();
 
-      const currentIP = await this.getCurrentIP();
-      dashboard.log(`Using Proxy IP: ${currentIP} for reporting usage`);
-
       const payload = {
         wallet_address: wallet,
         agent_id: options.agent_id,
@@ -153,18 +165,26 @@ class AgentService {
       };
 
       await this.axiosInstance.post(
-        "http://quests-usage-dev.prod.zettablock.com/api/report_usage",
-        payload
+        "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
+        payload,
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: this.timeout,
+        }
       );
 
       return true;
     } catch (error) {
-      const isRateLimit = error.response?.data?.error?.includes("Rate limit exceeded");
+      const isRateLimit = error.response?.data?.error?.includes(
+        "Rate limit exceeded"
+      );
+
       if (isRateLimit && retryCount < rateLimitConfig.maxRetries) {
         const delay = this.calculateDelay(retryCount);
         await sleep(delay);
         return this.reportUsage(wallet, options, retryCount + 1);
       }
+
       return false;
     }
   }

@@ -3,14 +3,14 @@ export const rateLimitConfig = {
     baseDelay: 2000,
     maxDelay: 10000,
     requestsPerMinute: 15,
-    intervalBetweenCycles: 15000,
+    intervalBetweenCycles: 5000,
     walletVerificationRetries: 3,
   };
   
   export const agents = {
-    deployment_p5J9lz1Zxe7CYEoo0TZpRVay: "Professor",
-    deployment_7sZJSiCqCNDy9bBHTEh7dwd9: "Crypto Buddy",
-    deployment_SoFftlsf9z4fyA3QCHYkaANq: "Sherlock",
+    deployment_5PG1mnhm7h5pvHnTxE90f9XB: "Professor",
+    deployment_nD28Y8LniIYZpVqgfTBW2nH1: "Crypto Buddy",
+    deployment_nC8HdPWdvy8SNOoYpA5SqCVc: "Sherlock",
   };
   
   export const groqConfig = {
@@ -23,3 +23,6 @@ export const rateLimitConfig = {
     code: "R7H32kqJ"
   }
   
+  export const proxyConfig = {
+    useProxy: true, // false if not use proxy
+};
