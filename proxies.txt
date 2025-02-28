@@ -1,0 +1,3 @@
+http://user:pass@ip:port
+http://user:pass@ip:port
+number line of proxies should match with wallets.txt

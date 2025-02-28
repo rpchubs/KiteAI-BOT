@@ -10,11 +10,11 @@ export const rateLimitConfig = {
   export const agents = {
     deployment_R89FtdnXa7jWWHyr97WQ9LKG: "Professor",
     deployment_fseGykIvCLs3m9Nrpe9Zguy9: "Crypto Buddy",
-    deployment_zs6OE0EdBuQuit8KK0V10dJT: "Sherlock",
+    // deployment_nC8HdPWdvy8SNOoYpA5SqCVc: "Sherlock",
   };
   
   export const groqConfig = {
-    apiKey: "your-groq-api-key-here",
+    apiKey: "your-groq-api-key",
     model: "mixtral-8x7b-32768",
     temperature: 0.7,
   };

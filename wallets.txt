@@ -1,0 +1,2 @@
+wallet-address-1
+wallet-address-2

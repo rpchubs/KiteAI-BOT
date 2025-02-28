@@ -30,7 +30,7 @@ class AgentService {
         .readFileSync("proxies.txt", "utf8")
         .split("\n")
         .map((line) => line.trim())
-        .filter((line) => line.startsWith("http")); // Chỉ lấy proxy đúng định dạng
+        .filter((line) => line.startsWith("http"));
 
       if (proxies.length === 0) {
         dashboard.log("No valid proxies found in proxies.txt!");
@@ -114,36 +114,74 @@ class AgentService {
   async sendQuestion(agent) {
     try {
       await this.checkRateLimit();
-
-      await this.updateProxy();
+      // await this.updateProxy();
       const currentIP = await this.getCurrentIP();
       dashboard.log(`Using Proxy IP: ${currentIP}`);
-
+  
       let question = await groqService.generateQuestion();
+      question = `Answer the following question very briefly: ${question}`;
+      dashboard.log(`Question generated: ${question}`);
+  
       const axiosInstance = axios.create({
-        headers: { "Content-Type": "application/json" },
-        timeout: this.timeout,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream"
+        },
+        responseType: "stream",
+        timeout: this.timeout
       });
-
-      question = `Answer the following question very briefly: ${question}`
-
-      const payload = { message: question, stream: false };
-      dashboard.log(`Question generated: ${question}`)
+  
+      const payload = {
+        message: question,
+        stream: true
+      };
+  
       const response = await axiosInstance.post(
-        `https://${agent
-          .toLowerCase()
-          .replace("_", "-")}.stag-vxzy.zettablock.com/main`,
+        `https://${agent.toLowerCase().replace("_", "-")}.stag-vxzy.zettablock.com/main`,
         payload
       );
-
-      if (!response.data?.choices?.[0]?.message) {
-        throw new Error("Invalid response format from agent");
-      }
-
-      return {
-        question,
-        response: response.data.choices[0].message,
-      };
+  
+      let finalText = "";
+  
+      return new Promise((resolve, reject) => {
+        response.data.on("data", (chunk) => {
+          const lines = chunk.toString("utf8").split("\n");
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            if (trimmed.startsWith("data: ")) {
+              const jsonStr = trimmed.slice("data: ".length).trim();
+              if (jsonStr === "[DONE]") {
+                resolve({
+                  question,
+                  response: finalText 
+                });
+                return;
+              }
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed?.choices?.[0]?.delta?.content;
+                if (content) {
+                  finalText += content;
+                }
+              } catch (err) {
+                // console.error("JSON parse error on chunk:", err.message);
+              }
+            }
+          }
+        });
+  
+        response.data.on("end", () => {
+          resolve({
+            question,
+            response: finalText
+          });
+        });
+  
+        response.data.on("error", (err) => {
+          reject(err);
+        });
+      });
     } catch (error) {
       if (error.code === "ECONNABORTED") {
         throw new Error(`Request timeout after ${this.timeout / 1000} seconds`);
@@ -151,6 +189,7 @@ class AgentService {
       throw error;
     }
   }
+  
 
   async reportUsage(wallet, options, retryCount = 0) {
     try {
@@ -164,7 +203,7 @@ class AgentService {
         request_metadata: {},
       };
 
-      await this.axiosInstance.post(
+      const reportedResponse = await this.axiosInstance.post(
         "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
         payload,
         {
@@ -173,7 +212,7 @@ class AgentService {
         }
       );
 
-      return true;
+      return reportedResponse;
     } catch (error) {
       const isRateLimit = error.response?.data?.error?.includes(
         "Rate limit exceeded"

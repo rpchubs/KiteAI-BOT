@@ -30,14 +30,15 @@ async function processAgentCycle(wallet, agentId, agentName) {
     stats.total++;
 
     if (nanya) {
-      dashboard.log(`Question: ${nanya.question}`);
-      dashboard.log(`Answer: ${nanya?.response?.content ?? ""}`);
+      // dashboard.log(`Question: ${nanya.question}`);
+      dashboard.log(`Answer: ${nanya.response ?? ""}`);
 
       const reported = await agentService.reportUsage(wallet, {
         agent_id: agentId,
         question: nanya.question,
-        response: nanya?.response?.content ?? "No answer",
+        response: nanya?.response ?? "No answer",
       });
+      dashboard.log(`Reported: ${reported.data.message}`)
 
       if (reported) {
         stats.successful++;
@@ -60,6 +61,7 @@ async function processAgentCycle(wallet, agentId, agentName) {
 }
 
 async function processWallet(wallet, cycleCount) {
+  await agentService.updateProxy();
   dashboard.log(`Processing wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
   dashboard.updateStatus(wallet, cycleCount, Date.now() - startTime);
 
