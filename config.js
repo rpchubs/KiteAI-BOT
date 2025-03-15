@@ -3,7 +3,7 @@ export const rateLimitConfig = {
     baseDelay: 2000,
     maxDelay: 10000,
     requestsPerMinute: 15,
-    intervalBetweenCycles: 5000,
+    intervalBetweenCycles: 20000,
     walletVerificationRetries: 3,
   };
   

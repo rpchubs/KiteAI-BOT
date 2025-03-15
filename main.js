@@ -38,7 +38,7 @@ async function processAgentCycle(wallet, agentId, agentName) {
         question: nanya.question,
         response: nanya?.response ?? "No answer",
       });
-      dashboard.log(`Reported: ${reported.data.message}`)
+      dashboard.log(`Reported: ${reported}`)
 
       if (reported) {
         stats.successful++;

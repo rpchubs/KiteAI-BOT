@@ -10,7 +10,7 @@ import dashboard from "../ui/dashboard.js";
 class AgentService {
   constructor() {
     this.lastRequestTime = Date.now();
-    this.timeout = 60000;
+    this.timeout = 30000;
     this.proxyIndex = 0;
     this.proxies = proxyConfig.useProxy ? this.loadProxies() : [];
     this.currentProxy = null;
@@ -114,7 +114,6 @@ class AgentService {
   async sendQuestion(agent) {
     try {
       await this.checkRateLimit();
-      // await this.updateProxy();
       const currentIP = await this.getCurrentIP();
       dashboard.log(`Using Proxy IP: ${currentIP}`);
   
@@ -127,7 +126,7 @@ class AgentService {
           "Content-Type": "application/json",
           "Accept": "text/event-stream"
         },
-        responseType: "stream",
+        responseType: "stream",   
         timeout: this.timeout
       });
   
@@ -154,7 +153,7 @@ class AgentService {
               if (jsonStr === "[DONE]") {
                 resolve({
                   question,
-                  response: finalText 
+                  response: finalText
                 });
                 return;
               }
@@ -165,7 +164,7 @@ class AgentService {
                   finalText += content;
                 }
               } catch (err) {
-                // console.error("JSON parse error on chunk:", err.message);
+                console.error("JSON parse error on chunk:", err.message);
               }
             }
           }
@@ -195,31 +194,53 @@ class AgentService {
     try {
       await this.checkRateLimit();
 
+      const agentId = options.agent_id.includes("-")
+        ? options.agent_id.replace("-", "_")
+        : options.agent_id;
+
       const payload = {
         wallet_address: wallet,
-        agent_id: options.agent_id,
+        agent_id: agentId,
         request_text: options.question,
         response_text: options.response,
         request_metadata: {},
       };
 
-      const reportedResponse = await this.axiosInstance.post(
+      const response = await this.axiosInstance.post(
         "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
         payload,
         {
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
           timeout: this.timeout,
         }
       );
 
-      return reportedResponse;
+      if (response.data?.message === "Usage report successfully recorded") {
+        return true;
+      } else {
+        dashboard.log("Unexpected response:", response.data);
+        return false;
+      }
     } catch (error) {
+      dashboard.logconsole.error("Report usage error:", error.message);
+
+      if (error.response) {
+        dashboard.log("Response data:", error.response.data);
+        dashboard.log("Response status:", error.response.status);
+      }
+
       const isRateLimit = error.response?.data?.error?.includes(
         "Rate limit exceeded"
       );
 
       if (isRateLimit && retryCount < rateLimitConfig.maxRetries) {
         const delay = this.calculateDelay(retryCount);
+        dashboard.log(
+          `Rate limit detected, retrying in ${delay / 1000} seconds...`
+        );
         await sleep(delay);
         return this.reportUsage(wallet, options, retryCount + 1);
       }

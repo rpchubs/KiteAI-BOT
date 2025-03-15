@@ -1,2 +1,2 @@
-wallet-address-1
-wallet-address-2
+wallet1
+wallet2
