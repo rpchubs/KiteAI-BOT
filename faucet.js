@@ -10,7 +10,7 @@ function maskWallet(address) {
 }
 
 // ------------------------- CONFIG -------------------------
-const API_KEY = "8dde1ccc9ba43f7b307811cf13fb0f6f"; 
+const API_KEY = "your-2catpcha-api-key"; 
 const SITE_KEY = "6LeNaK8qAAAAAHLuyTlCrZD_U1UoFLcCTLoa_69T"; 
 const PAGE_URL = "https://faucet.gokite.ai";
 const FAUCET_API_URL = "https://faucet.gokite.ai/api/sendToken";
