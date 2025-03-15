@@ -8,7 +8,7 @@ export const rateLimitConfig = {
   };
   
   export const agents = {
-    deployment_R89FtdnXa7jWWHyr97WQ9LKG: "Professor",
+    deployment_vxJKb0YqfT5VLWZU7okKWa8L: "Professor",
     deployment_fseGykIvCLs3m9Nrpe9Zguy9: "Crypto Buddy",
     // deployment_nC8HdPWdvy8SNOoYpA5SqCVc: "Sherlock",
   };
